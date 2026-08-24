@@ -26,7 +26,7 @@ export default function ModelsPage(props: {
   models: {
     availableModels: NomadOllamaModel[]
     installedModels: NomadInstalledModel[]
-    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean }
+    settings: { chatSuggestionsEnabled: boolean; aiAssistantCustomName: string; remoteOllamaUrl: string; remoteOllamaEmbedUrl: string; ollamaFlashAttention: boolean; autoThinking: boolean }
   }
 }) {
   const { aiAssistantName } = usePage<{ aiAssistantName: string }>().props
@@ -103,6 +103,9 @@ export default function ModelsPage(props: {
     props.models.settings.aiAssistantCustomName
   )
   const [remoteOllamaUrl, setRemoteOllamaUrl] = useState(props.models.settings.remoteOllamaUrl)
+  const [remoteOllamaEmbedUrl, setRemoteOllamaEmbedUrl] = useState(
+    props.models.settings.remoteOllamaEmbedUrl ?? ''
+  )
   const [remoteOllamaError, setRemoteOllamaError] = useState<string | null>(null)
   const [remoteOllamaSaving, setRemoteOllamaSaving] = useState(false)
 
@@ -110,7 +113,7 @@ export default function ModelsPage(props: {
     setRemoteOllamaError(null)
     setRemoteOllamaSaving(true)
     try {
-      const res = await api.configureRemoteOllama(remoteOllamaUrl || null)
+      const res = await api.configureRemoteOllama(remoteOllamaUrl || null, remoteOllamaEmbedUrl || null)
       if (res?.success) {
         addNotification({ message: res.message, type: 'success' })
         router.reload()
@@ -130,6 +133,7 @@ export default function ModelsPage(props: {
       const res = await api.configureRemoteOllama(null)
       if (res?.success) {
         setRemoteOllamaUrl('')
+        setRemoteOllamaEmbedUrl('')
         addNotification({ message: 'Remote Ollama configuration cleared.', type: 'success' })
         router.reload()
       }
@@ -411,14 +415,24 @@ export default function ModelsPage(props: {
               For remote Ollama instances, the host must be started with <code className="bg-surface-secondary px-1 rounded">OLLAMA_HOST=0.0.0.0</code>.
             </p>
             <div className="flex items-end gap-3">
-              <div className="flex-1">
+              <div className="flex-1 space-y-3">
                 <Input
                   name="remoteOllamaUrl"
-                  label="Remote Ollama/OpenAI API URL"
-                  placeholder="http://192.168.1.100:11434  (or :1234 for OpenAI API Compatible Apps)"
+                  label="Inference Ollama / OpenAI API URL"
+                  placeholder="http://192.168.1.100:11434  (chat / generation)"
                   value={remoteOllamaUrl}
                   onChange={(e) => {
                     setRemoteOllamaUrl(e.target.value)
+                    setRemoteOllamaError(null)
+                  }}
+                />
+                <Input
+                  name="remoteOllamaEmbedUrl"
+                  label="Embeddings Ollama URL (optional)"
+                  placeholder="Leave blank to use the inference host"
+                  value={remoteOllamaEmbedUrl}
+                  onChange={(e) => {
+                    setRemoteOllamaEmbedUrl(e.target.value)
                     setRemoteOllamaError(null)
                   }}
                 />
