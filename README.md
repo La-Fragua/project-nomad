@@ -35,6 +35,9 @@ For a complete step-by-step walkthrough (including Ubuntu installation), see the
 ### Advanced Installation
 For more control over the installation process, copy and paste the [Docker Compose template](https://raw.githubusercontent.com/Crosstalk-Solutions/project-nomad/refs/heads/main/install/management_compose.yaml) into a `docker-compose.yml` file and customize it to your liking (be sure to replace any placeholders with your actual values). Then, run `docker compose up -d` to start the Command Center and its dependencies. Note: this method is recommended for advanced users only, as it requires familiarity with Docker and manual configuration before starting.
 
+### Unraid (unofficial)
+Unraid is not an officially supported platform. A community Compose Manager stack lives in [`install/unraid/`](install/unraid/README.md): clone the repo, point Compose Manager at that folder, and optionally set `NOMAD_REMOTE_OLLAMA_URL` to your existing Unraid Ollama. That path does **not** start `nomad_ollama`; Qdrant still runs locally so downloaded content is embedded into the knowledge base. Do not manage `nomad_*` containers from Unraid’s Docker tab.
+
 ## How It Works
 NOMAD is a management UI ("Command Center") and API that orchestrates a collection of containerized tools and resources via [Docker](https://www.docker.com/). It handles installation, configuration, and updates for everything — so you don't have to.
 

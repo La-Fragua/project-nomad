@@ -26,6 +26,7 @@ import { randomBytes } from 'node:crypto'
 import KVStore from '#models/kv_store'
 import { BROADCAST_CHANNELS } from '../../constants/broadcast.js'
 import { KIWIX_LIBRARY_CMD } from '../../constants/kiwix.js'
+import { resolveRemoteOllamaUrl } from '../utils/remote_ollama.js'
 
 @inject()
 export class DockerService {
@@ -229,7 +230,7 @@ export class DockerService {
     }
 
     if (serviceName === SERVICE_NAMES.OLLAMA) {
-      const remoteUrl = await KVStore.getValue('ai.remoteOllamaUrl')
+      const remoteUrl = await resolveRemoteOllamaUrl()
       if (remoteUrl) return remoteUrl
     }
 
@@ -283,6 +284,13 @@ export class DockerService {
       return {
         success: false,
         message: `Service ${serviceName} not found`,
+      }
+    }
+
+    if (serviceName === SERVICE_NAMES.OLLAMA) {
+      const remoteUrl = await resolveRemoteOllamaUrl()
+      if (remoteUrl) {
+        return this._adoptRemoteOllamaWithoutContainer(service, remoteUrl)
       }
     }
 
@@ -342,6 +350,37 @@ export class DockerService {
   }
 
   /**
+   * Mark AI Assistant installed against a remote Ollama and ensure Qdrant exists.
+   * Never creates nomad_ollama — chat and embeddings go to the remote URL; Qdrant
+   * stays local so downloaded content can still feed the knowledge base.
+   */
+  private async _adoptRemoteOllamaWithoutContainer(
+    service: Service,
+    remoteUrl: string
+  ): Promise<{ success: boolean; message: string }> {
+    await KVStore.setValue('ai.remoteOllamaUrl', remoteUrl)
+    service.installed = true
+    service.installation_status = 'idle'
+    await service.save()
+
+    const qdrant = await Service.query().where('service_name', SERVICE_NAMES.QDRANT).first()
+    if (qdrant && !qdrant.installed) {
+      this.createContainerPreflight(SERVICE_NAMES.QDRANT).catch((error) => {
+        logger.error(
+          '[DockerService] Failed to start Qdrant for remote Ollama knowledge base:',
+          error
+        )
+      })
+    }
+
+    return {
+      success: true,
+      message:
+        'Using remote Ollama; skipped local nomad_ollama. Qdrant will be installed so downloaded content can still be embedded into the knowledge base.',
+    }
+  }
+
+  /**
    * Force reinstall a service by stopping, removing, and recreating its container.
    *
    * Volume handling: removes Docker-managed named volumes whose name equals
@@ -357,6 +396,17 @@ export class DockerService {
         return {
           success: false,
           message: `Service ${serviceName} not found`,
+        }
+      }
+
+      if (serviceName === SERVICE_NAMES.OLLAMA) {
+        const remoteUrl = await resolveRemoteOllamaUrl()
+        if (remoteUrl) {
+          return {
+            success: false,
+            message:
+              'Local Ollama is not used because a remote Ollama URL is configured. Knowledge-base embeddings still go through that Ollama and Qdrant.',
+          }
         }
       }
 

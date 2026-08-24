@@ -30,6 +30,16 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   /*
   |----------------------------------------------------------
+  | Remote Ollama (Unraid / external GPU host)
+  |----------------------------------------------------------
+  | When set, AI Assistant uses this base URL and never creates nomad_ollama.
+  | Qdrant is still installed so downloaded content is embedded into the
+  | knowledge base via the remote host. Leave unset for local Ollama or the UI.
+  */
+  NOMAD_REMOTE_OLLAMA_URL: Env.schema.string.optional(),
+
+  /*
+  |----------------------------------------------------------
   | Variables for configuring session package
   |----------------------------------------------------------
   */

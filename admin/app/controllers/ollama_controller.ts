@@ -281,6 +281,7 @@ export default class OllamaController {
     // the service marked installed. Otherwise fall back to uninstalled.
     if (!remoteUrl || remoteUrl.trim() === '') {
       await KVStore.clearValue('ai.remoteOllamaUrl')
+      await KVStore.clearValue('ai.remoteOllamaEmbedUrl')
       const hasLocalContainer = await this._startLocalOllamaContainerIfExists()
       ollamaService.installed = hasLocalContainer
       ollamaService.installation_status = 'idle'
@@ -322,6 +323,38 @@ export default class OllamaController {
 
     // Save remote URL and mark service as installed
     await KVStore.setValue('ai.remoteOllamaUrl', remoteUrl.trim())
+
+    const embedUrl: string | null = request.input('embedUrl', null)
+    if (embedUrl && embedUrl.trim()) {
+      try {
+        assertNotCloudMetadataUrl(embedUrl)
+      } catch (err) {
+        return response.status(400).send({
+          success: false,
+          message: err instanceof Error ? err.message : 'Invalid embedding URL.',
+        })
+      }
+      try {
+        const embedTest = await fetch(`${embedUrl.replace(/\/$/, '')}/v1/models`, {
+          signal: AbortSignal.timeout(5000),
+        })
+        if (!embedTest.ok) {
+          return response.status(400).send({
+            success: false,
+            message: `Could not connect to embedding Ollama at ${embedUrl} (HTTP ${embedTest.status}).`,
+          })
+        }
+      } catch {
+        return response.status(400).send({
+          success: false,
+          message: `Could not connect to embedding Ollama at ${embedUrl}.`,
+        })
+      }
+      await KVStore.setValue('ai.remoteOllamaEmbedUrl', embedUrl.trim())
+    } else {
+      await KVStore.clearValue('ai.remoteOllamaEmbedUrl')
+    }
+
     ollamaService.installed = true
     ollamaService.installation_status = 'idle'
     await ollamaService.save()

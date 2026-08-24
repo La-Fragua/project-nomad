@@ -70,9 +70,10 @@ export class OllamaService {
     if (!this.initPromise) {
       this.initPromise = (async () => {
         // Check KVStore for a custom base URL (remote Ollama, LM Studio, llama.cpp, etc.)
-        const customUrl = (await KVStore.getValue('ai.remoteOllamaUrl')) as string | null
-        if (customUrl && customUrl.trim()) {
-          this.baseUrl = customUrl.trim().replace(/\/$/, '')
+        const { resolveRemoteOllamaUrl } = await import('../utils/remote_ollama.js')
+        const customUrl = await resolveRemoteOllamaUrl()
+        if (customUrl) {
+          this.baseUrl = customUrl
         } else {
           // Fall back to the local Ollama container managed by Docker
           const dockerService = new (await import('./docker_service.js')).DockerService()

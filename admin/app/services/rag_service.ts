@@ -308,14 +308,20 @@ export class RagService {
       )
 
       if (!this.embeddingModelVerified) {
-        const allModels = await this.ollamaService.getModels(true)
+        const allModels = await this.ollamaService.getModels(true, 'embed')
         const embeddingModel =
           allModels.find((model) => model.name === EMBEDDING_MODEL_NAME) ??
           allModels.find((model) => model.name.toLowerCase().includes('nomic-embed-text'))
 
         if (!embeddingModel) {
           try {
-            const downloadResult = await this.ollamaService.downloadModel(EMBEDDING_MODEL_NAME)
+            const downloadResult = await this.ollamaService.downloadModel(
+              EMBEDDING_MODEL_NAME,
+              undefined,
+              undefined,
+              undefined,
+              'embed'
+            )
             if (!downloadResult.success) {
               throw new Error(downloadResult.message || 'Unknown error during model download')
             }
@@ -861,7 +867,7 @@ export class RagService {
       }
 
       if (!this.embeddingModelVerified) {
-        const allModels = await this.ollamaService.getModels(true)
+        const allModels = await this.ollamaService.getModels(true, 'embed')
         const embeddingModel =
           allModels.find((model) => model.name === EMBEDDING_MODEL_NAME) ??
           allModels.find((model) => model.name.toLowerCase().includes('nomic-embed-text'))
