@@ -1,0 +1,74 @@
+name: Trivy
+
+# Escaneo de vulnerabilidades HIGH y CRITICAL (solo las que tienen fix). Falla el
+# check si encuentra alguna. Corre en PRs, en cada push a main y a diario,
+# porque aparecen CVEs nuevos en dependencias e imagenes que no cambiaron.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trivy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependencias:
+    name: Trivy (dependencias)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Escanear dependencias
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          version: v0.75.0
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+  imagenes:
+    # Se buildea la imagen del PR (sin push) y se escanea.
+    name: Trivy (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: project-nomad
+            context: .
+            file: Dockerfile
+          - name: sidecar-disk-collector
+            context: install/sidecar-disk-collector
+            file: install/sidecar-disk-collector/Dockerfile
+          - name: sidecar-updater
+            context: install/sidecar-updater
+            file: install/sidecar-updater/Dockerfile
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+      - name: Build
+        run: docker build -t "trivy-scan/${{ matrix.name }}:${{ github.sha }}" -f "${{ matrix.file }}" "${{ matrix.context }}"
+      - name: Escanear imagen
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_IMAGE_SRC: docker
+        with:
+          scan-type: image
+          image-ref: trivy-scan/${{ matrix.name }}:${{ github.sha }}
+          version: v0.75.0
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
